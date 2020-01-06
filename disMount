@@ -1,0 +1,77 @@
+#!/usr/bin/bash
+DISK=`lsblk -a |grep disk|grep -v sda|awk '{print $1}'`
+
+function partedDisk
+{
+    for disk in $DISK
+    do
+        echo -e "\033[33m Starting parted Disk $disk \033[0m"
+        parted -s /dev/${disk} mklabel gpt
+        parted -s /dev/${disk} mkpart primary ext4  0 100%
+    done
+    echo -e "\033[47;32m All disk parted Done! \033[0m"
+    sleep 1s
+    for disk in $DISK
+    do
+        echo -e "\033[33m Starting format partition /dev/${disk}1 \033[0m"
+        mkfs.ext4 -F /dev/${disk}1
+        sleep 2s
+    done
+    echo -e "\033[47;32m All partition format Done!!! \033[0m"
+    sleep 1s
+}
+
+function removePartions
+{
+    for disk in $DISK
+    do
+        echo -e "\033[33m Starting remove partition /dev/${disk} \033[0m"
+        for i in {1,2,3,4,5}
+        do
+            ls /dev/${disk}$i > /dev/null 2>&1
+            if [ $? -eq 0 ]
+            then
+                parted -s /dev/${disk} rm $i
+            fi
+        done
+        echo -e "\033[47;32m All partitons on /dev/${disk} are Removed ! \033[0m"
+    done
+    echo -e "\033[47;32m All disk's partiton Removed! \033[0m"
+    sleep 1s
+}
+
+function makeDir
+{
+    echo -e "\033[33m Starting make the mount directory \033[0m"
+    for disk in $DISK
+    do
+        mkdir /home/${disk}
+    done
+    echo -e "\033[31m The mount directories are: \033[0m"
+    for disk in $DISK
+    do
+        echo /home/${disk}
+    done
+    echo -e "\033[47;32m Make mount directories Done!! \033[0m"
+    sleep 1s
+}
+
+function mountDisk
+{
+    for disk in $DISK
+    do
+        uuid=`blkid /dev/${disk}1|awk '{print $2}'|awk -F "\"" '{print $2}'`
+        cat <<EOF >>uuid.txt
+UUID=$uuid /home/${disk}               ext4    defaults        1 2
+EOF
+    done
+    cat uuid.txt>>/etc/fstab
+    echo -e "\033[31m The file /etc/fstab is: \033[0m"
+    cat /etc/fstab
+    echo -e "\033[31m Please comfirm it and reboot your system!!! \033[0m"
+}
+
+#removePartions
+partedDisk
+#makeDir
+mountDisk
